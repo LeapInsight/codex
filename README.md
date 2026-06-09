@@ -32,7 +32,7 @@ include this fork patch. To use the LeapInsight fork release side-by-side with
 an official `codex` install, install it as `codex-leap`:
 
 ```shell
-curl -fsSL https://raw.githubusercontent.com/LeapInsight/codex/main/scripts/install/install-leap.sh | sh
+curl -fsSL https://github.com/LeapInsight/codex/releases/latest/download/install-leap.sh | sh
 ```
 
 Then add the config to `~/.codex/config.toml`:
@@ -43,9 +43,11 @@ metadata_context_window_percent = 10
 ```
 
 Fork releases are published from `leap-v*` tags on
-<https://github.com/LeapInsight/codex/releases>. The fork installer stores its
-standalone package under `~/.codex/packages/leap-standalone`, so it does not
-replace the official standalone package state.
+<https://github.com/LeapInsight/codex/releases>. Initial binary releases target
+macOS Apple Silicon; build from source on other platforms until additional
+release targets are enabled. The fork installer stores its standalone package
+under `~/.codex/packages/leap-standalone`, so it does not replace the official
+standalone package state.
 
 ## Quickstart
 

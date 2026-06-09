@@ -55,11 +55,12 @@ budgeting and is distributed as `codex-leap` so it can live beside an official
 `codex` install:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/LeapInsight/codex/main/scripts/install/install-leap.sh | sh
+curl -fsSL https://github.com/LeapInsight/codex/releases/latest/download/install-leap.sh | sh
 codex-leap --version
 ```
 
 Fork releases are built from `leap-v*` tags by `.github/workflows/leap-release.yml`.
+Initial binary releases target macOS Apple Silicon.
 For development builds from source, clone `https://github.com/LeapInsight/codex.git`
 instead of `https://github.com/openai/codex.git`.
 

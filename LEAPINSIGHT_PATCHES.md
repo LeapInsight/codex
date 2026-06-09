@@ -53,7 +53,7 @@ If a GitHub Release is available, prefer installing the fork build as
 `codex-leap` so it can live beside an official `codex` installation:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/LeapInsight/codex/main/scripts/install/install-leap.sh | sh
+curl -fsSL https://github.com/LeapInsight/codex/releases/latest/download/install-leap.sh | sh
 codex-leap --version
 ```
 
@@ -110,15 +110,18 @@ git tag leap-v0.0.0-skill-budget.N
 git push origin leap-v0.0.0-skill-budget.N
 ```
 
-The workflow uploads:
+The workflow currently uploads:
 
 - `codex-package-aarch64-apple-darwin.tar.gz`
-- `codex-package-x86_64-unknown-linux-musl.tar.gz`
 - `codex-package_SHA256SUMS`
+- `install-leap.sh`
 
 The installer downloads the matching package for the local platform, verifies
 the archive against `codex-package_SHA256SUMS`, installs the package under
 `~/.codex/packages/leap-standalone`, and exposes `~/.local/bin/codex-leap`.
+
+Initial binary releases target macOS Apple Silicon. Build from source on other
+platforms until the Linux musl/bwrap release toolchain is enabled in this fork.
 
 macOS release packages are currently unsigned and not notarized. If Gatekeeper
 blocks a downloaded package, the release process should either add Apple
