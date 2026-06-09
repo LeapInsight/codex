@@ -46,7 +46,7 @@ jobs:
       matrix:
         include:
           - target: aarch64-apple-darwin
-            runner: macos-15-xlarge
+            runner: macos-15
           - target: x86_64-unknown-linux-musl
             runner: ubuntu-24.04
     steps:
@@ -80,7 +80,14 @@ jobs:
           tmp_dir="$(mktemp -d)"
           trap 'rm -rf "$tmp_dir"' EXIT
           tar -xzf "dist/codex-package-${{ matrix.target }}.tar.gz" -C "$tmp_dir"
-          "$tmp_dir/bin/codex" --version
+          case "$(uname -m):${{ matrix.target }}" in
+            arm64:aarch64-apple-darwin | aarch64:aarch64-apple-darwin | x86_64:x86_64-* | x86_64:*linux*)
+              "$tmp_dir/bin/codex" --version
+              ;;
+            *)
+              echo "Skipping smoke test for cross-built target ${{ matrix.target }} on $(uname -m)."
+              ;;
+          esac
       - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: codex-package-${{ matrix.target }}

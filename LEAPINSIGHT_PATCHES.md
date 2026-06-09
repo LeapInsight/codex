@@ -106,8 +106,8 @@ Create or update a fork release by pushing a `leap-v*` tag or running the
 `leap-release` workflow manually:
 
 ```bash
-git tag leap-v0.0.0-skill-budget.1
-git push origin leap-v0.0.0-skill-budget.1
+git tag leap-v0.0.0-skill-budget.N
+git push origin leap-v0.0.0-skill-budget.N
 ```
 
 The workflow uploads:
