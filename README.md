@@ -9,6 +9,48 @@ If you want Codex in your code editor (VS Code, Cursor, Windsurf), <a href="http
 
 ---
 
+## LeapInsight fork patch
+
+This fork currently carries one local patch: the model-visible skill metadata
+budget can be configured from `~/.codex/config.toml`.
+
+```toml
+[skills]
+# Valid range: 1..100. Defaults to 2 when unset.
+metadata_context_window_percent = 10
+# Optional exact override. When set, this takes precedence over the percent.
+# metadata_token_budget = 27000
+```
+
+- Fork PR: <https://github.com/LeapInsight/codex/pull/2>
+- Upstream feature request: <https://github.com/openai/codex/issues/19679>
+- Patch details and build instructions: [LEAPINSIGHT_PATCHES.md](./LEAPINSIGHT_PATCHES.md)
+
+### Installing the fork build
+
+The official install commands below install upstream OpenAI Codex and do not
+include this fork patch. To use the LeapInsight fork release side-by-side with
+an official `codex` install, install it as `codex-leap`:
+
+```shell
+curl -fsSL https://github.com/LeapInsight/codex/releases/latest/download/install-leap.sh | sh
+```
+
+Then add the config to `~/.codex/config.toml`:
+
+```toml
+[skills]
+# Valid range: 1..100. Defaults to 2 when unset.
+metadata_context_window_percent = 10
+```
+
+Fork releases are published from `v<codex-version>-leap` tags on
+<https://github.com/LeapInsight/codex/releases>. Initial binary releases target
+macOS Apple Silicon; build from source on other platforms until additional
+release targets are enabled. The fork installer stores its standalone package
+under `~/.codex/packages/leap-standalone`, so it does not replace the official
+standalone package state.
+
 ## Quickstart
 
 ### Installing and running Codex CLI

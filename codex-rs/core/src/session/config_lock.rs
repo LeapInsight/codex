@@ -170,10 +170,10 @@ fn save_config_resolved_fields(
     agents.job_max_runtime_seconds = config.agent_job_max_runtime_seconds;
     agents.interrupt_message = Some(config.agent_interrupt_message_enabled);
 
-    lock_config
-        .skills
-        .get_or_insert_with(Default::default)
-        .include_instructions = Some(config.include_skill_instructions);
+    let skills = lock_config.skills.get_or_insert_with(Default::default);
+    skills.include_instructions = Some(config.include_skill_instructions);
+    skills.metadata_context_window_percent = config.skill_metadata_context_window_percent;
+    skills.metadata_token_budget = config.skill_metadata_token_budget;
 
     Ok(())
 }

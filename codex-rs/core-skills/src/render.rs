@@ -15,11 +15,11 @@ use codex_utils_absolute_path::AbsolutePathBuf;
 use codex_utils_output_truncation::approx_token_count;
 
 const DEFAULT_SKILL_METADATA_CHAR_BUDGET: usize = 8_000;
-const SKILL_METADATA_CONTEXT_WINDOW_PERCENT: usize = 2;
+const DEFAULT_SKILL_METADATA_CONTEXT_WINDOW_PERCENT: usize = 2;
+const MAX_SKILL_METADATA_CONTEXT_WINDOW_PERCENT: usize = 100;
 const SKILL_DESCRIPTION_TRUNCATION_WARNING_THRESHOLD_CHARS: usize = 100;
 const APPROX_BYTES_PER_TOKEN: usize = 4;
 pub const SKILL_DESCRIPTION_TRUNCATED_WARNING: &str = "Skill descriptions were shortened to fit the skills context budget. Codex can still see every skill, but some descriptions are shorter. Disable unused skills or plugins to leave more room for the rest.";
-pub const SKILL_DESCRIPTION_TRUNCATED_WARNING_WITH_PERCENT: &str = "Skill descriptions were shortened to fit the 2% skills context budget. Codex can still see every skill, but some descriptions are shorter. Disable unused skills or plugins to leave more room for the rest.";
 pub const SKILL_DESCRIPTIONS_REMOVED_WARNING_PREFIX: &str =
     "Exceeded skills context budget. All skill descriptions were removed and";
 pub const SKILLS_INTRO_WITH_ABSOLUTE_PATHS: &str = "A skill is a set of local instructions to follow that is stored in a `SKILL.md` file. Below is the list of skills that can be used. Each entry includes a name, description, and file path so you can open the source for full instructions when using a specific skill.";
@@ -85,6 +85,7 @@ pub fn render_available_skills_body(skill_root_lines: &[String], skill_lines: &[
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SkillMetadataBudget {
+    ContextWindowPercent { limit: usize, percent: usize },
     Tokens(usize),
     Characters(usize),
 }
@@ -92,20 +93,23 @@ pub enum SkillMetadataBudget {
 impl SkillMetadataBudget {
     fn limit(self) -> usize {
         match self {
+            Self::ContextWindowPercent { limit, .. } => limit,
             Self::Tokens(limit) | Self::Characters(limit) => limit,
         }
     }
 
     fn cost(self, text: &str) -> usize {
         match self {
-            Self::Tokens(_) => approx_token_count(text),
+            Self::ContextWindowPercent { .. } | Self::Tokens(_) => approx_token_count(text),
             Self::Characters(_) => text.chars().count(),
         }
     }
 
     fn cost_from_counts(self, chars: usize, bytes: usize) -> usize {
         match self {
-            Self::Tokens(_) => approx_token_count_from_bytes(bytes),
+            Self::ContextWindowPercent { .. } | Self::Tokens(_) => {
+                approx_token_count_from_bytes(bytes)
+            }
             Self::Characters(_) => chars,
         }
     }
@@ -140,17 +144,25 @@ pub struct AvailableSkills {
     pub warning_message: Option<String>,
 }
 
-pub fn default_skill_metadata_budget(context_window: Option<i64>) -> SkillMetadataBudget {
+pub fn default_skill_metadata_budget(
+    context_window: Option<i64>,
+    context_window_percent: Option<usize>,
+    token_budget: Option<usize>,
+) -> SkillMetadataBudget {
+    if let Some(token_budget) = token_budget.filter(|budget| *budget > 0) {
+        return SkillMetadataBudget::Tokens(token_budget);
+    }
+
+    let percent = context_window_percent
+        .filter(|percent| (1..=MAX_SKILL_METADATA_CONTEXT_WINDOW_PERCENT).contains(percent))
+        .unwrap_or(DEFAULT_SKILL_METADATA_CONTEXT_WINDOW_PERCENT);
+
     context_window
         .and_then(|window| usize::try_from(window).ok())
         .filter(|window| *window > 0)
-        .map(|window| {
-            SkillMetadataBudget::Tokens(
-                window
-                    .saturating_mul(SKILL_METADATA_CONTEXT_WINDOW_PERCENT)
-                    .saturating_div(100)
-                    .max(1),
-            )
+        .map(|window| SkillMetadataBudget::ContextWindowPercent {
+            limit: window.saturating_mul(percent).saturating_div(100).max(1),
+            percent,
         })
         .unwrap_or(SkillMetadataBudget::Characters(
             DEFAULT_SKILL_METADATA_CHAR_BUDGET,
@@ -231,13 +243,7 @@ fn build_available_skills_from_lines(
     } else if report.average_truncated_description_chars()
         > SKILL_DESCRIPTION_TRUNCATION_WARNING_THRESHOLD_CHARS
     {
-        Some(
-            match budget {
-                SkillMetadataBudget::Tokens(_) => SKILL_DESCRIPTION_TRUNCATED_WARNING_WITH_PERCENT,
-                SkillMetadataBudget::Characters(_) => SKILL_DESCRIPTION_TRUNCATED_WARNING,
-            }
-            .to_string(),
-        )
+        Some(skill_description_truncated_warning(budget))
     } else {
         None
     };
@@ -278,12 +284,23 @@ fn record_available_skills_side_effects(
 
 fn budget_warning_prefix(budget: SkillMetadataBudget, prefix: &str) -> String {
     match budget {
-        SkillMetadataBudget::Tokens(_) => prefix.replacen(
+        SkillMetadataBudget::ContextWindowPercent { percent, .. } => prefix.replacen(
             "Exceeded skills context budget.",
-            "Exceeded skills context budget of 2%.",
+            &format!("Exceeded skills context budget of {percent}%."),
             1,
         ),
-        SkillMetadataBudget::Characters(_) => prefix.to_string(),
+        SkillMetadataBudget::Tokens(_) | SkillMetadataBudget::Characters(_) => prefix.to_string(),
+    }
+}
+
+fn skill_description_truncated_warning(budget: SkillMetadataBudget) -> String {
+    match budget {
+        SkillMetadataBudget::ContextWindowPercent { percent, .. } => format!(
+            "Skill descriptions were shortened to fit the {percent}% skills context budget. Codex can still see every skill, but some descriptions are shorter. Disable unused skills or plugins to leave more room for the rest."
+        ),
+        SkillMetadataBudget::Tokens(_) | SkillMetadataBudget::Characters(_) => {
+            SKILL_DESCRIPTION_TRUNCATED_WARNING.to_string()
+        }
     }
 }
 
@@ -647,6 +664,12 @@ fn build_aliased_available_skills(
 
     let adjusted_limit = budget.limit().saturating_sub(plan.table_cost);
     let adjusted_budget = match budget {
+        SkillMetadataBudget::ContextWindowPercent { percent, .. } => {
+            SkillMetadataBudget::ContextWindowPercent {
+                limit: adjusted_limit,
+                percent,
+            }
+        }
         SkillMetadataBudget::Tokens(_) => SkillMetadataBudget::Tokens(adjusted_limit),
         SkillMetadataBudget::Characters(_) => SkillMetadataBudget::Characters(adjusted_limit),
     };
@@ -1009,23 +1032,88 @@ mod tests {
     #[test]
     fn default_budget_uses_two_percent_of_full_context_window() {
         assert_eq!(
-            default_skill_metadata_budget(Some(200_000)),
-            SkillMetadataBudget::Tokens(4_000)
+            default_skill_metadata_budget(Some(200_000), None, None),
+            SkillMetadataBudget::ContextWindowPercent {
+                limit: 4_000,
+                percent: 2,
+            }
         );
         assert_eq!(
-            default_skill_metadata_budget(Some(99)),
-            SkillMetadataBudget::Tokens(1)
+            default_skill_metadata_budget(Some(99), None, None),
+            SkillMetadataBudget::ContextWindowPercent {
+                limit: 1,
+                percent: 2,
+            }
+        );
+    }
+
+    #[test]
+    fn default_budget_uses_configured_context_window_percent() {
+        assert_eq!(
+            default_skill_metadata_budget(Some(200_000), Some(10), None),
+            SkillMetadataBudget::ContextWindowPercent {
+                limit: 20_000,
+                percent: 10,
+            }
+        );
+    }
+
+    #[test]
+    fn default_budget_accepts_full_context_window_percent() {
+        assert_eq!(
+            default_skill_metadata_budget(Some(200_000), Some(100), None),
+            SkillMetadataBudget::ContextWindowPercent {
+                limit: 200_000,
+                percent: 100,
+            }
+        );
+    }
+
+    #[test]
+    fn default_budget_ignores_invalid_context_window_percent() {
+        assert_eq!(
+            default_skill_metadata_budget(Some(200_000), Some(0), None),
+            SkillMetadataBudget::ContextWindowPercent {
+                limit: 4_000,
+                percent: 2,
+            }
+        );
+        assert_eq!(
+            default_skill_metadata_budget(Some(200_000), Some(101), None),
+            SkillMetadataBudget::ContextWindowPercent {
+                limit: 4_000,
+                percent: 2,
+            }
+        );
+    }
+
+    #[test]
+    fn default_budget_prefers_absolute_token_budget() {
+        assert_eq!(
+            default_skill_metadata_budget(Some(200_000), Some(10), Some(27_000)),
+            SkillMetadataBudget::Tokens(27_000)
+        );
+    }
+
+    #[test]
+    fn default_budget_ignores_zero_token_budget() {
+        assert_eq!(
+            default_skill_metadata_budget(Some(200_000), Some(10), Some(0)),
+            SkillMetadataBudget::ContextWindowPercent {
+                limit: 20_000,
+                percent: 10,
+            }
         );
     }
 
     #[test]
     fn default_budget_falls_back_to_characters_without_context_window() {
         assert_eq!(
-            default_skill_metadata_budget(/*context_window*/ None),
+            default_skill_metadata_budget(/*context_window*/ None, Some(10), None),
             SkillMetadataBudget::Characters(DEFAULT_SKILL_METADATA_CHAR_BUDGET)
         );
         assert_eq!(
-            default_skill_metadata_budget(Some(-1)),
+            default_skill_metadata_budget(Some(-1), Some(10), None),
             SkillMetadataBudget::Characters(DEFAULT_SKILL_METADATA_CHAR_BUDGET)
         );
     }
@@ -1104,7 +1192,28 @@ mod tests {
     }
 
     #[test]
-    fn budgeted_rendering_token_budget_truncation_warning_mentions_two_percent() {
+    fn budgeted_rendering_context_percent_truncation_warning_mentions_percent() {
+        let long_description = "a".repeat(1000);
+        let long_skill =
+            make_skill_with_description("long-skill", SkillScope::Repo, &long_description);
+        let minimum_cost =
+            SkillLine::new(&long_skill).minimum_cost(SkillMetadataBudget::Tokens(usize::MAX));
+        let budget = SkillMetadataBudget::ContextWindowPercent {
+            limit: minimum_cost + 1,
+            percent: 10,
+        };
+
+        let rendered = build_available_skills_from_metadata(&[long_skill], budget)
+            .expect("skills should render");
+
+        assert_eq!(
+            rendered.warning_message,
+            Some("Skill descriptions were shortened to fit the 10% skills context budget. Codex can still see every skill, but some descriptions are shorter. Disable unused skills or plugins to leave more room for the rest.".to_string())
+        );
+    }
+
+    #[test]
+    fn budgeted_rendering_token_budget_truncation_warning_is_generic() {
         let long_description = "a".repeat(1000);
         let long_skill =
             make_skill_with_description("long-skill", SkillScope::Repo, &long_description);
@@ -1117,7 +1226,7 @@ mod tests {
 
         assert_eq!(
             rendered.warning_message,
-            Some(SKILL_DESCRIPTION_TRUNCATED_WARNING_WITH_PERCENT.to_string())
+            Some(SKILL_DESCRIPTION_TRUNCATED_WARNING.to_string())
         );
     }
 

@@ -31,6 +31,19 @@ pub struct SkillsConfig {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub include_instructions: Option<bool>,
 
+    /// Percent of the model context window reserved for the initial
+    /// model-visible skill metadata list. Valid values are 1 through 100.
+    /// Defaults to 2 when unset.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(range(min = 1, max = 100))]
+    pub metadata_context_window_percent: Option<usize>,
+
+    /// Absolute token budget for the initial model-visible skill metadata list.
+    /// Takes precedence over `metadata_context_window_percent` when positive.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(range(min = 1))]
+    pub metadata_token_budget: Option<usize>,
+
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub config: Vec<SkillConfig>,
 }

@@ -674,6 +674,13 @@ pub struct Config {
     /// Whether to inject the `<skills_instructions>` developer block.
     pub include_skill_instructions: bool,
 
+    /// Percent of the model context window reserved for the initial
+    /// model-visible skill metadata list.
+    pub skill_metadata_context_window_percent: Option<usize>,
+
+    /// Absolute token budget for the initial model-visible skill metadata list.
+    pub skill_metadata_token_budget: Option<usize>,
+
     /// Whether to inject the `<environment_context>` user block.
     pub include_environment_context: bool,
 
@@ -3260,6 +3267,14 @@ impl Config {
             .as_ref()
             .and_then(|skills| skills.include_instructions)
             .unwrap_or(true);
+        let skill_metadata_context_window_percent = cfg
+            .skills
+            .as_ref()
+            .and_then(|skills| skills.metadata_context_window_percent);
+        let skill_metadata_token_budget = cfg
+            .skills
+            .as_ref()
+            .and_then(|skills| skills.metadata_token_budget);
         let include_environment_context = cfg.include_environment_context.unwrap_or(true);
         let guardian_policy_config =
             guardian_policy_config_from_requirements(config_layer_stack.requirements_toml())
@@ -3467,6 +3482,8 @@ impl Config {
             include_apps_instructions,
             include_collaboration_mode_instructions,
             include_skill_instructions,
+            skill_metadata_context_window_percent,
+            skill_metadata_token_budget,
             include_environment_context,
             // The config.toml omits "_mode" because it's a config file. However, "_mode"
             // is important in code to differentiate the mode from the store implementation.

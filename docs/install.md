@@ -47,6 +47,25 @@ just test
 # time and `target/` disk usage by compiling additional feature combinations.
 ```
 
+### LeapInsight fork release
+
+The upstream commands in this document install upstream OpenAI Codex. The
+LeapInsight fork carries a small local patch for configurable skill metadata
+budgeting and is distributed as `codex-leap` so it can live beside an official
+`codex` install:
+
+```bash
+curl -fsSL https://github.com/LeapInsight/codex/releases/latest/download/install-leap.sh | sh
+codex-leap --version
+```
+
+Fork releases are built from `v<codex-version>-leap` tags by `.github/workflows/leap-release.yml`.
+Initial binary releases target macOS Apple Silicon.
+For development builds from source, clone `https://github.com/LeapInsight/codex.git`
+instead of `https://github.com/openai/codex.git`.
+The fork-specific `skills.metadata_context_window_percent` setting accepts
+values from 1 through 100 and defaults to 2 when unset.
+
 ## Tracing / verbose logging
 
 Codex is written in Rust, so it honors the `RUST_LOG` environment variable to configure its logging behavior.

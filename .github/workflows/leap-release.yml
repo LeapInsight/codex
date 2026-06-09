@@ -1,0 +1,144 @@
+name: leap-release
+
+on:
+  push:
+    tags:
+      - "v*-leap"
+      - "leap-v*"
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: "Release tag to create or update, for example v0.0.0-leap"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+env:
+  CARGO_NET_GIT_FETCH_WITH_CLI: "true"
+  RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_name || github.ref_name }}
+
+jobs:
+  validate:
+    name: Validate release tag
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Validate tag name
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$RELEASE_TAG" in
+            v*-leap | leap-v*) ;;
+            *)
+              echo "LeapInsight fork releases must use v*-leap tags; legacy leap-v* tags are also accepted."
+              exit 1
+              ;;
+          esac
+          echo "Releasing $RELEASE_TAG"
+
+  package:
+    name: Package ${{ matrix.target }}
+    needs: validate
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: aarch64-apple-darwin
+            runner: macos-15
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@e081816240890017053eacbb1bdf337761dc5582 # 1.95.0
+        with:
+          targets: ${{ matrix.target }}
+      - name: Install Linux musl build tools
+        if: ${{ runner.os == 'Linux' }}
+        shell: bash
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          set -euo pipefail
+          bash .github/scripts/install-musl-build-tools.sh
+      - name: Build Codex package archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          python3 scripts/build_codex_package.py \
+            --target "${{ matrix.target }}" \
+            --cargo-profile release \
+            --archive-output "dist/codex-package-${{ matrix.target }}.tar.gz" \
+            --force
+      - name: Smoke-test package archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          tmp_dir="$(mktemp -d)"
+          trap 'rm -rf "$tmp_dir"' EXIT
+          tar -xzf "dist/codex-package-${{ matrix.target }}.tar.gz" -C "$tmp_dir"
+          case "$(uname -m):${{ matrix.target }}" in
+            arm64:aarch64-apple-darwin | aarch64:aarch64-apple-darwin | x86_64:x86_64-* | x86_64:*linux*)
+              "$tmp_dir/bin/codex" --version
+              ;;
+            *)
+              echo "Skipping smoke test for cross-built target ${{ matrix.target }} on $(uname -m)."
+              ;;
+          esac
+      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: codex-package-${{ matrix.target }}
+          path: dist/codex-package-${{ matrix.target }}.tar.gz
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub release
+    needs: package
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Add installer release asset
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp scripts/install/install-leap.sh dist/install-leap.sh
+      - name: Add checksum manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          find dist -type f -name 'codex-package-*.tar.gz' -print |
+            sort |
+            while IFS= read -r archive; do
+              sha256sum "$archive" |
+                awk -v name="$(basename "$archive")" '{ print $1 "  " name }'
+            done > dist/codex-package_SHA256SUMS
+          test -s dist/codex-package_SHA256SUMS
+          cat dist/codex-package_SHA256SUMS
+      - uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2.6.1
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: Codex Leap ${{ env.RELEASE_TAG }}
+          body: |
+            LeapInsight Codex fork build.
+
+            This release installs side-by-side with official Codex as `codex-leap`.
+            Initial binary releases target macOS Apple Silicon. Build from
+            source on other platforms until additional release targets are
+            enabled.
+
+            See `LEAPINSIGHT_PATCHES.md` for the local patch inventory.
+          files: |
+            dist/install-leap.sh
+            dist/codex-package-*.tar.gz
+            dist/codex-package_SHA256SUMS
