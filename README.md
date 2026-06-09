@@ -16,6 +16,7 @@ budget can be configured from `~/.codex/config.toml`.
 
 ```toml
 [skills]
+# Valid range: 1..100. Defaults to 2 when unset.
 metadata_context_window_percent = 10
 # Optional exact override. When set, this takes precedence over the percent.
 # metadata_token_budget = 27000
@@ -39,10 +40,11 @@ Then add the config to `~/.codex/config.toml`:
 
 ```toml
 [skills]
+# Valid range: 1..100. Defaults to 2 when unset.
 metadata_context_window_percent = 10
 ```
 
-Fork releases are published from `leap-v*` tags on
+Fork releases are published from `v<codex-version>-leap` tags on
 <https://github.com/LeapInsight/codex/releases>. Initial binary releases target
 macOS Apple Silicon; build from source on other platforms until additional
 release targets are enabled. The fork installer stores its standalone package

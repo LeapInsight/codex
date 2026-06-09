@@ -59,10 +59,12 @@ curl -fsSL https://github.com/LeapInsight/codex/releases/latest/download/install
 codex-leap --version
 ```
 
-Fork releases are built from `leap-v*` tags by `.github/workflows/leap-release.yml`.
+Fork releases are built from `v<codex-version>-leap` tags by `.github/workflows/leap-release.yml`.
 Initial binary releases target macOS Apple Silicon.
 For development builds from source, clone `https://github.com/LeapInsight/codex.git`
 instead of `https://github.com/openai/codex.git`.
+The fork-specific `skills.metadata_context_window_percent` setting accepts
+values from 1 through 100 and defaults to 2 when unset.
 
 ## Tracing / verbose logging
 

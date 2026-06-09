@@ -16,6 +16,7 @@ use codex_utils_output_truncation::approx_token_count;
 
 const DEFAULT_SKILL_METADATA_CHAR_BUDGET: usize = 8_000;
 const DEFAULT_SKILL_METADATA_CONTEXT_WINDOW_PERCENT: usize = 2;
+const MAX_SKILL_METADATA_CONTEXT_WINDOW_PERCENT: usize = 100;
 const SKILL_DESCRIPTION_TRUNCATION_WARNING_THRESHOLD_CHARS: usize = 100;
 const APPROX_BYTES_PER_TOKEN: usize = 4;
 pub const SKILL_DESCRIPTION_TRUNCATED_WARNING: &str = "Skill descriptions were shortened to fit the skills context budget. Codex can still see every skill, but some descriptions are shorter. Disable unused skills or plugins to leave more room for the rest.";
@@ -153,7 +154,7 @@ pub fn default_skill_metadata_budget(
     }
 
     let percent = context_window_percent
-        .filter(|percent| *percent > 0)
+        .filter(|percent| (1..=MAX_SKILL_METADATA_CONTEXT_WINDOW_PERCENT).contains(percent))
         .unwrap_or(DEFAULT_SKILL_METADATA_CONTEXT_WINDOW_PERCENT);
 
     context_window
@@ -1058,10 +1059,50 @@ mod tests {
     }
 
     #[test]
+    fn default_budget_accepts_full_context_window_percent() {
+        assert_eq!(
+            default_skill_metadata_budget(Some(200_000), Some(100), None),
+            SkillMetadataBudget::ContextWindowPercent {
+                limit: 200_000,
+                percent: 100,
+            }
+        );
+    }
+
+    #[test]
+    fn default_budget_ignores_invalid_context_window_percent() {
+        assert_eq!(
+            default_skill_metadata_budget(Some(200_000), Some(0), None),
+            SkillMetadataBudget::ContextWindowPercent {
+                limit: 4_000,
+                percent: 2,
+            }
+        );
+        assert_eq!(
+            default_skill_metadata_budget(Some(200_000), Some(101), None),
+            SkillMetadataBudget::ContextWindowPercent {
+                limit: 4_000,
+                percent: 2,
+            }
+        );
+    }
+
+    #[test]
     fn default_budget_prefers_absolute_token_budget() {
         assert_eq!(
             default_skill_metadata_budget(Some(200_000), Some(10), Some(27_000)),
             SkillMetadataBudget::Tokens(27_000)
+        );
+    }
+
+    #[test]
+    fn default_budget_ignores_zero_token_budget() {
+        assert_eq!(
+            default_skill_metadata_budget(Some(200_000), Some(10), Some(0)),
+            SkillMetadataBudget::ContextWindowPercent {
+                limit: 20_000,
+                percent: 10,
+            }
         );
     }
 

@@ -4,7 +4,6 @@ set -eu
 
 RELEASE="${CODEX_LEAP_RELEASE:-latest}"
 RELEASE_REPO="${CODEX_LEAP_REPO:-LeapInsight/codex}"
-RELEASE_TAG_PREFIX="${CODEX_LEAP_TAG_PREFIX:-leap-v}"
 BIN_NAME="${CODEX_LEAP_BIN_NAME:-codex-leap}"
 BIN_DIR="${CODEX_LEAP_INSTALL_DIR:-$HOME/.local/bin}"
 BIN_PATH="$BIN_DIR/$BIN_NAME"
@@ -32,7 +31,12 @@ Environment:
   CODEX_LEAP_RELEASE      Release tag or version to install; default: latest.
   CODEX_LEAP_REPO         GitHub repository to download from; default: LeapInsight/codex.
   CODEX_LEAP_BIN_NAME     Visible command name; default: codex-leap.
+  CODEX_LEAP_ALLOW_CODEX_BIN_NAME
+                          Set to 1 to allow CODEX_LEAP_BIN_NAME=codex.
   CODEX_LEAP_INSTALL_DIR  Directory for the visible command; default: ~/.local/bin.
+  CODEX_LEAP_NO_PATH_UPDATE
+                          Set to 1 to skip shell profile PATH edits.
+  CODEX_LEAP_TARGET       Override the detected release target; intended for CI.
   CODEX_HOME              Codex home directory; default: ~/.codex.
 EOF
 }
@@ -114,14 +118,17 @@ normalize_release_tag() {
     "" | latest)
       printf 'latest\n'
       ;;
-    "$RELEASE_TAG_PREFIX"*)
+    leap-v* | v*-leap)
       printf '%s\n' "$raw"
       ;;
+    *-leap)
+      printf 'v%s\n' "$raw"
+      ;;
     v*)
-      printf '%s%s\n' "$RELEASE_TAG_PREFIX" "${raw#v}"
+      printf '%s-leap\n' "$raw"
       ;;
     *)
-      printf '%s%s\n' "$RELEASE_TAG_PREFIX" "$raw"
+      printf 'v%s-leap\n' "$raw"
       ;;
   esac
 }
@@ -285,6 +292,11 @@ pick_profile() {
 }
 
 add_to_path() {
+  if [ "${CODEX_LEAP_NO_PATH_UPDATE:-}" = "1" ]; then
+    path_action="skipped"
+    return
+  fi
+
   case ":$PATH:" in
     *":$BIN_DIR:"*)
       return
@@ -322,6 +334,10 @@ print_launch_instructions() {
       step "Future terminals: open a new terminal and run: $BIN_NAME"
       step "PATH is already configured in $path_profile"
       ;;
+    skipped)
+      step "PATH update skipped by CODEX_LEAP_NO_PATH_UPDATE=1"
+      step "Run: $BIN_PATH"
+      ;;
     *)
       step "$BIN_DIR is already on PATH"
       step "Run: $BIN_NAME"
@@ -330,6 +346,12 @@ print_launch_instructions() {
 }
 
 parse_args "$@"
+
+if [ "$BIN_NAME" = "codex" ] && [ "${CODEX_LEAP_ALLOW_CODEX_BIN_NAME:-}" != "1" ]; then
+  echo "Refusing to install Codex Leap as \"codex\" because that can shadow an official Codex install." >&2
+  echo "Use the default \"codex-leap\" command name, or set CODEX_LEAP_ALLOW_CODEX_BIN_NAME=1 to override." >&2
+  exit 1
+fi
 
 require_command mktemp
 require_command tar
@@ -383,6 +405,21 @@ else
     platform_label="Linux (x64)"
   fi
 fi
+
+if [ -n "${CODEX_LEAP_TARGET:-}" ]; then
+  vendor_target="$CODEX_LEAP_TARGET"
+  platform_label="$CODEX_LEAP_TARGET (override)"
+fi
+
+case "$vendor_target" in
+  aarch64-apple-darwin)
+    ;;
+  *)
+    echo "Codex Leap binary releases currently support macOS Apple Silicon only ($vendor_target detected)." >&2
+    echo "Build from source on this platform or wait for a future release target." >&2
+    exit 1
+    ;;
+esac
 
 resolved_tag="$(resolve_release_tag)"
 package_asset="codex-package-$vendor_target.tar.gz"

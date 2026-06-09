@@ -57,3 +57,39 @@ jobs:
         run: cargo test -p codex-core config_schema_matches_fixture --lib
       - name: bundled skills config parse test
         run: cargo test -p codex-core parses_bundled_skills_config --lib
+
+  installer-smoke-tests:
+    name: Installer smoke tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: shell syntax
+        run: sh -n scripts/install/install-leap.sh
+      - name: supported target dry run
+        run: |
+          set -euo pipefail
+          CODEX_LEAP_TARGET=aarch64-apple-darwin \
+            CODEX_LEAP_NO_PATH_UPDATE=1 \
+            sh scripts/install/install-leap.sh --dry-run --release v0.0.0-leap
+      - name: unsupported target error
+        run: |
+          set -euo pipefail
+          set +e
+          output="$(CODEX_LEAP_TARGET=x86_64-unknown-linux-musl sh scripts/install/install-leap.sh --dry-run --release v0.0.0-leap 2>&1)"
+          status=$?
+          set -e
+          test "$status" -ne 0
+          printf '%s\n' "$output" | grep -F "currently support macOS Apple Silicon"
+      - name: codex command name guard
+        run: |
+          set -euo pipefail
+          set +e
+          output="$(CODEX_LEAP_BIN_NAME=codex sh scripts/install/install-leap.sh --dry-run --release v0.0.0-leap 2>&1)"
+          status=$?
+          set -e
+          test "$status" -ne 0
+          printf '%s\n' "$output" | grep -F "Refusing to install Codex Leap as \"codex\""

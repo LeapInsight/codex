@@ -19,7 +19,7 @@ optional config keys under `[skills]`:
 ```toml
 [skills]
 # Percent of the model context window reserved for the initial skill list.
-# Defaults to 2 when unset.
+# Valid range: 1..100. Defaults to 2 when unset.
 metadata_context_window_percent = 10
 
 # Optional exact token budget. When set to a positive value, this takes
@@ -31,8 +31,11 @@ Behavior:
 
 - unset config remains upstream-compatible at 2%;
 - `metadata_context_window_percent = 10` changes the warning to say 10%;
+- `metadata_context_window_percent` accepts 1 through 100; values outside that
+  range are ignored at render time and the default 2% is used;
 - `metadata_token_budget = 27000` uses an absolute token budget instead of a
   context-window percentage;
+- `metadata_token_budget = 0` is ignored, matching the positive-only schema;
 - if the model context window is unavailable, Codex still falls back to the
   existing 8,000 character budget.
 
@@ -102,12 +105,12 @@ full OpenAI release pipeline. The fork release workflow avoids OpenAI npm,
 Homebrew, WinGet, docs deploy, codesigning, notarization, and custom runner
 assumptions.
 
-Create or update a fork release by pushing a `leap-v*` tag or running the
+Create or update a fork release by pushing a `v<codex-version>-leap` tag or running the
 `leap-release` workflow manually:
 
 ```bash
-git tag leap-v0.0.0-skill-budget.N
-git push origin leap-v0.0.0-skill-budget.N
+git tag v0.0.0-leap
+git push origin v0.0.0-leap
 ```
 
 The workflow currently uploads:
