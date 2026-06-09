@@ -56,13 +56,14 @@ jobs:
       - uses: dtolnay/rust-toolchain@e081816240890017053eacbb1bdf337761dc5582 # 1.95.0
         with:
           targets: ${{ matrix.target }}
-      - name: Install Linux package prerequisites
+      - name: Install Linux musl build tools
         if: ${{ runner.os == 'Linux' }}
         shell: bash
+        env:
+          TARGET: ${{ matrix.target }}
         run: |
           set -euo pipefail
-          sudo apt-get update
-          sudo apt-get install -y musl-tools
+          bash .github/scripts/install-musl-build-tools.sh
       - name: Build Codex package archive
         shell: bash
         run: |
