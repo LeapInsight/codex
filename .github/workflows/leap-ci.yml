@@ -1,0 +1,59 @@
+name: leap-ci
+
+on:
+  pull_request:
+    paths:
+      - "LEAPINSIGHT_PATCHES.md"
+      - "README.md"
+      - "codex-rs/config/**"
+      - "codex-rs/core-skills/**"
+      - "codex-rs/core/**"
+      - "docs/install.md"
+      - "scripts/install/install-leap.sh"
+      - ".github/workflows/leap-ci.yml"
+      - ".github/workflows/leap-release.yml"
+  push:
+    branches:
+      - "feat/skill-metadata-budget-config"
+      - "leap/**"
+    paths:
+      - "LEAPINSIGHT_PATCHES.md"
+      - "README.md"
+      - "codex-rs/config/**"
+      - "codex-rs/core-skills/**"
+      - "codex-rs/core/**"
+      - "docs/install.md"
+      - "scripts/install/install-leap.sh"
+      - ".github/workflows/leap-ci.yml"
+      - ".github/workflows/leap-release.yml"
+  workflow_dispatch:
+
+env:
+  CARGO_NET_GIT_FETCH_WITH_CLI: "true"
+
+jobs:
+  focused-skill-budget-tests:
+    name: Focused skill budget tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: codex-rs
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@e081816240890017053eacbb1bdf337761dc5582 # 1.95.0
+        with:
+          components: rustfmt
+      - name: cargo fmt
+        run: cargo fmt --all --check
+      - name: core-skills default budget tests
+        run: cargo test -p codex-core-skills default_budget --lib
+      - name: core-skills budgeted rendering tests
+        run: cargo test -p codex-core-skills budgeted_rendering_ --lib
+      - name: core config schema test
+        run: cargo test -p codex-core config_schema_matches_fixture --lib
+      - name: bundled skills config parse test
+        run: cargo test -p codex-core parses_bundled_skills_config --lib
