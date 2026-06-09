@@ -9,6 +9,22 @@ If you want Codex in your code editor (VS Code, Cursor, Windsurf), <a href="http
 
 ---
 
+## LeapInsight fork patch
+
+This fork currently carries one local patch: the model-visible skill metadata
+budget can be configured from `~/.codex/config.toml`.
+
+```toml
+[skills]
+metadata_context_window_percent = 10
+# Optional exact override. When set, this takes precedence over the percent.
+# metadata_token_budget = 27000
+```
+
+- Fork PR: pending in <https://github.com/LeapInsight/codex>
+- Upstream feature request: <https://github.com/openai/codex/issues/19679>
+- Patch details and build instructions: [LEAPINSIGHT_PATCHES.md](./LEAPINSIGHT_PATCHES.md)
+
 ## Quickstart
 
 ### Installing and running Codex CLI

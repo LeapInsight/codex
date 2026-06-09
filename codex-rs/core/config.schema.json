@@ -2671,6 +2671,18 @@
         "include_instructions": {
           "description": "Whether turns receive the automatic skills instructions block.",
           "type": "boolean"
+        },
+        "metadata_context_window_percent": {
+          "description": "Percent of the model context window reserved for the initial model-visible skill metadata list. Defaults to 2 when unset.",
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "metadata_token_budget": {
+          "description": "Absolute token budget for the initial model-visible skill metadata list. Takes precedence over `metadata_context_window_percent` when set.",
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
         }
       },
       "type": "object"

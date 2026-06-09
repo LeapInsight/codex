@@ -370,6 +370,8 @@ fn parses_bundled_skills_config() {
         r#"
 [skills]
 include_instructions = false
+metadata_context_window_percent = 10
+metadata_token_budget = 27000
 
 [skills.bundled]
 enabled = false
@@ -382,6 +384,8 @@ enabled = false
         Some(SkillsConfig {
             bundled: Some(BundledSkillsConfig { enabled: false }),
             include_instructions: Some(false),
+            metadata_context_window_percent: Some(10),
+            metadata_token_budget: Some(27000),
             config: Vec::new(),
         })
     );
