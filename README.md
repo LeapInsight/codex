@@ -25,6 +25,28 @@ metadata_context_window_percent = 10
 - Upstream feature request: <https://github.com/openai/codex/issues/19679>
 - Patch details and build instructions: [LEAPINSIGHT_PATCHES.md](./LEAPINSIGHT_PATCHES.md)
 
+### Installing the fork build
+
+The official install commands below install upstream OpenAI Codex and do not
+include this fork patch. To use the LeapInsight fork release side-by-side with
+an official `codex` install, install it as `codex-leap`:
+
+```shell
+curl -fsSL https://raw.githubusercontent.com/LeapInsight/codex/main/scripts/install/install-leap.sh | sh
+```
+
+Then add the config to `~/.codex/config.toml`:
+
+```toml
+[skills]
+metadata_context_window_percent = 10
+```
+
+Fork releases are published from `leap-v*` tags on
+<https://github.com/LeapInsight/codex/releases>. The fork installer stores its
+standalone package under `~/.codex/packages/leap-standalone`, so it does not
+replace the official standalone package state.
+
 ## Quickstart
 
 ### Installing and running Codex CLI
