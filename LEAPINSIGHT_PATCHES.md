@@ -44,7 +44,7 @@ Touched areas:
 
 Related links:
 
-- Fork PR: pending in <https://github.com/LeapInsight/codex>
+- Fork PR: <https://github.com/LeapInsight/codex/pull/2>
 - Upstream feature request: <https://github.com/openai/codex/issues/19679>
 
 ## Build from this fork

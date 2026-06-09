@@ -21,7 +21,7 @@ metadata_context_window_percent = 10
 # metadata_token_budget = 27000
 ```
 
-- Fork PR: pending in <https://github.com/LeapInsight/codex>
+- Fork PR: <https://github.com/LeapInsight/codex/pull/2>
 - Upstream feature request: <https://github.com/openai/codex/issues/19679>
 - Patch details and build instructions: [LEAPINSIGHT_PATCHES.md](./LEAPINSIGHT_PATCHES.md)
 
